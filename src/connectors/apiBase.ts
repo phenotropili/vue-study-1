@@ -10,15 +10,18 @@ export class ApiBase {
     private readonly onError?: (status: number, message?: string, data?: any) => void
   ) {
     this.axiosInstance = axios.create({
-      baseURL: endpoint
+      baseURL: endpoint,
+      headers: {
+        'Content-Type': 'application/json'
+      }
     })
   }
 
-  protected async request<Res, Params = any, Body = any>(
+  protected async request<Res, Body = any, Params = any>(
     method: HTTPMethod,
     url: string,
-    params?: Params,
-    body?: Body
+    body?: Body,
+    params?: Params
   ): Promise<Res | undefined> {
     try {
       const requestUrl = url[0] === '/' ? url.slice(1) : url

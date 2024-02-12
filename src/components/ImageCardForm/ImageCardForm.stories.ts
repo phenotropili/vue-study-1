@@ -9,6 +9,9 @@ const meta = {
   argTypes: {
     card: {
       description: 'Image card data'
+    },
+    onSumbit: {
+      type: 'function'
     }
   },
   args: {

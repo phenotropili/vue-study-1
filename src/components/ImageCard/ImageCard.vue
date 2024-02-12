@@ -11,6 +11,7 @@ const emits = defineEmits<{
   favToggle: [id: number, newToggle: boolean]
   delete: [id: string]
   loadError: []
+  edit: [id: string, categories: string[]]
 }>()
 
 const btnRef = ref(undefined)
@@ -48,28 +49,29 @@ const onDelete = () => {
 const onCancelEdit = () => {
   isEditing.value = false
 }
+
+const onSubmit = (categories: string[]) => {
+  isEditing.value = false
+  emits('edit', props.id, categories)
+}
 </script>
 
 <template>
-  <v-card class="card">
+  <v-card class="card d-flex flex-column justify-space-between">
     <v-img @error="$emit('loadError')" class="image" :src="url" download aspect-ratio="1"></v-img>
-    <v-col class="d-flex flex-column pa-0 gr-4">
-      <v-card-text
-        v-if="props.categories?.length"
-        class="d-flex pt-0 flex-wrap gc-1 gr-1 py-0 mt-4"
+    <v-card-text v-if="props.categories?.length" class="d-flex pt-4 flex-wrap gc-1 gr-1 py-0">
+      <v-chip
+        v-for="tag in props.categories"
+        v-bind:key="tag"
+        :title="tag"
+        :prepend-icon="mdiLabel"
+        color="grey"
       >
-        <v-chip
-          v-for="tag in props.categories"
-          v-bind:key="tag"
-          :title="tag"
-          :prepend-icon="mdiLabel"
-          color="grey"
-        >
-          <span class="tag">{{ tag }}</span>
-        </v-chip>
-      </v-card-text>
-      <v-card-actions class="py-0">
-        <!-- <v-btn
+        <span class="tag">{{ tag }}</span>
+      </v-chip>
+    </v-card-text>
+    <v-card-actions class="py-0 actions">
+      <!-- <v-btn
           @click="onCopyClick"
           size="small"
           color="primary"
@@ -79,27 +81,26 @@ const onCancelEdit = () => {
           title="Copy to clipboard"
           :disabled="props.disabled"
         ></v-btn> -->
-        <v-btn
-          size="small"
-          color="primary"
-          variant="text"
-          :icon="mdiPencil"
-          title="Edit"
-          @click="isEditing = true"
-          :disabled="props.disabled"
-        ></v-btn>
-        <v-btn
-          size="small"
-          color="primary"
-          variant="text"
-          :icon="mdiDelete"
-          class="ms-auto"
-          title="Delete"
-          @click="isDeleting = true"
-          :disabled="props.disabled"
-        ></v-btn>
-      </v-card-actions>
-    </v-col>
+      <v-btn
+        size="small"
+        color="primary"
+        variant="text"
+        :icon="mdiPencil"
+        title="Edit"
+        @click="isEditing = true"
+        :disabled="props.disabled"
+      ></v-btn>
+      <v-btn
+        size="small"
+        color="primary"
+        variant="text"
+        :icon="mdiDelete"
+        class="ms-auto"
+        title="Delete"
+        @click="isDeleting = true"
+        :disabled="props.disabled"
+      ></v-btn>
+    </v-card-actions>
 
     <v-expand-transition>
       <v-card v-if="isDeleting" class="delete-container d-flex flex-column">
@@ -120,6 +121,7 @@ const onCancelEdit = () => {
           :card="{ id: props.id, url: props.url, categories: props.categories }"
           class="flex-grow-1"
           @cancel="onCancelEdit"
+          @sumbit="onSubmit"
         />
       </v-card>
     </v-expand-transition>
@@ -127,6 +129,10 @@ const onCancelEdit = () => {
 </template>
 
 <style>
+.image {
+  margin-bottom: auto;
+}
+
 .color {
   display: inline;
   width: 16px;

@@ -1,8 +1,5 @@
 <script setup lang="ts">
 import type { ImageCard } from '@/models'
-import ImageCardComponent from '../ImageCard/ImageCard.vue'
-import { ref } from 'vue'
-import { computed } from 'vue'
 import { reactive } from 'vue'
 
 const props = defineProps<{ card: ImageCard }>()
@@ -18,7 +15,10 @@ const formValues = reactive({
 })
 
 const onCategoriesTouch = (v: string) => {
-  formValues.tagsList = v.split(/\s|,/).filter((x) => Boolean(x))
+  formValues.tagsList = v
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => Boolean(x))
 }
 </script>
 
@@ -30,7 +30,7 @@ const onCategoriesTouch = (v: string) => {
       @update:model-value="onCategoriesTouch"
       variant="plain"
       no-resize
-      rows="14"
+      rows="8"
     ></v-textarea>
     <div class="d-flex justify-space-between">
       <v-btn variant="text" @click="$emit('cancel')">Cancel</v-btn>

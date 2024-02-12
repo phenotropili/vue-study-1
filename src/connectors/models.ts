@@ -1,3 +1,5 @@
+import type { ImageCard } from '@/models'
+
 export enum HTTPMethod {
   /**
    * The `CONNECT` method establishes a tunnel to the server identified by the
@@ -50,4 +52,9 @@ export enum HTTPMethod {
    * target resource.
    */
   TRACE = 'TRACE'
+}
+
+export type EditImageResponse = {
+  image: ImageCard
+  categories: string[]
 }

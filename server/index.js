@@ -7,7 +7,7 @@ import bodyParser from 'body-parser'
 import nc from 'natural-compare-lite'
 import cors from 'cors'
 
-const { databasePath, imagesPath, port, picsPerPage } = cfg
+const { databasePath, imagesPath, port, picsPerPage, imagesBaseURL } = cfg
 
 const imageRegex = /\.(gif|jpe?g|tiff?|png|webp|bmp)$/i
 
@@ -29,6 +29,23 @@ const dbPath =
 const dbContent = fs.readFileSync(dbPath)
 const database = JSON.parse(dbContent)
 
+const saveDatabase = () => {
+  const newDBContent = JSON.stringify(database)
+  fs.writeFileSync(dbPath, newDBContent, { encoding: 'utf-8' })
+}
+
+const getCategoriesList = () => Object.keys(database.catToImg).sort((a, b) => nc(a, b))
+
+const getImage = (id) => {
+  const categories = database.imgToCat[id]
+
+  return {
+    id,
+    categories,
+    url: `${imagesBaseURL}/${id}`
+  }
+}
+
 const images = getImagesInDirectory(imagesPath)
 
 const app = express()
@@ -45,15 +62,21 @@ app.use(
 
 app.post('/api/v1/getImages/', (_req, res) => {
   console.log(_req.body)
-  const start = _req.body.page || 0
+  const start = (_req.body.page || 0) * picsPerPage
   const end = start + picsPerPage
   const selectedImages = images.slice(start, end)
 
-  return res.send(selectedImages)
+  console.log({ start, end, selectedImages })
+
+  const imagesProps = selectedImages.map((id) => getImage(id))
+
+  return res.send(imagesProps)
 })
 
 app.post('/api/v1/editImage', (_req, res) => {
+  console.log('Editing image')
   const { id, categories = [] } = _req.body
+  console.log({ id, categories })
   const categoriesMap = Object.fromEntries(categories.map((cat) => [cat, true]))
 
   const existedCats = database.imgToCat[id] || []
@@ -63,7 +86,11 @@ app.post('/api/v1/editImage', (_req, res) => {
 
   const removedCats = existedCats.filter((cat) => !categoriesMap[cat])
 
-  database.imgToCat[id] = categories
+  if (categories.length) {
+    database.imgToCat[id] = categories
+  } else {
+    delete database.imgToCat[id]
+  }
   addedCats.forEach((cat) => {
     const imagesByCat = database.catToImg[cat]
 
@@ -91,10 +118,15 @@ app.post('/api/v1/editImage', (_req, res) => {
       delete database.catToImg[cat]
     }
   })
-  const newDBContent = JSON.stringify(database)
-  fs.writeFileSync(dbPath, newDBContent, { encoding: 'utf-8' })
 
-  res.sendStatus(200)
+  saveDatabase()
+
+  const image = getImage(id)
+
+  res.json({
+    image,
+    categories: getCategoriesList()
+  })
 })
 
 app.get('/api/v1/getCategories', (_req, res) => {
