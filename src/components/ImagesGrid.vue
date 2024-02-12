@@ -19,11 +19,14 @@ const cards = computed<ImageCardProps[]>(() => {
 </script>
 
 <template>
-  <v-container v-if="cards.length">
-    <v-row no-gutters>
-      <v-col cols="4" v-for="card in cards" :key="card.id">
-        <ImageCard :id="card.id" :url="card.url" />
-      </v-col>
-    </v-row>
-  </v-container>
+  <div class="grid gr-4 gc-4">
+    <ImageCard v-for="card in cards" :key="card.id" :id="card.id" :url="card.url" />
+  </div>
 </template>
+
+<style>
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+}
+</style>

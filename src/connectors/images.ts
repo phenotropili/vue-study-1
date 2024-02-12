@@ -9,7 +9,7 @@ export class ImagesConnector extends ApiBase {
 
   public async getImages(page?: number, filters?: ImageFilters): Promise<string[]> {
     const images =
-      (await this.request<string[]>(HTTPMethod.GET, 'getImages', { page, filters })) ?? []
+      (await this.request<string[]>(HTTPMethod.POST, 'getImages', { page, filters })) ?? []
 
     return images
   }

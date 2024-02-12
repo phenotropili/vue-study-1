@@ -1,6 +1,6 @@
 export const config = {
   endpoints: {
-    images: '/images',
+    images: '//localhost:3000/images',
     api: '//localhost:3000/api/v1'
   }
 }

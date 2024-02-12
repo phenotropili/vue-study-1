@@ -8,7 +8,6 @@ import config from '@/config'
 onMounted(async () => {
   const imagesListStore = useImagesListStore()
   const imagesConnector = new ImagesConnector(config.endpoints.api)
-
   const images = await imagesConnector.getImages()
   console.log({ images })
   imagesListStore.images = images
@@ -16,7 +15,5 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main>
-    <ImagesGrid />
-  </main>
+  <ImagesGrid />
 </template>
