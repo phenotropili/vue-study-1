@@ -5,22 +5,34 @@ import { useImagesListStore } from '@/stores/imagesList'
 import { ImagesConnector } from '@/connectors/images'
 import config from '@/config'
 import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const imagesConnector = new ImagesConnector(config.endpoints.api)
 const imagesListStore = useImagesListStore()
 
-const pagesCount = computed(() => imagesListStore.images.length)
+const pagesCount = ref(0)
 
 const loadImages = (p: number) => {
-  imagesConnector.getImages(p - 1).then((images) => {
+  imagesConnector.getImages(p - 1).then(({ images, pagesTotal }) => {
     imagesListStore.images = images
+    pagesCount.value = pagesTotal
   })
 }
 
-const page = ref(1)
+const route = useRoute()
+const router = useRouter()
+const page = computed<number>(() => {
+  const pageStr = route.params['page'] as string
+  const pageNum = parseInt(pageStr, 10)
+
+  return !Number.isNaN(pageNum) ? pageNum : 1
+})
+watch(page, (newPage) => {
+  loadImages(newPage)
+})
+
 const onPage = (newPage: number) => {
-  page.value = newPage
-  loadImages(page.value)
+  router.push({ name: 'home', params: { page: newPage } })
 }
 
 onMounted(() => {
@@ -38,7 +50,6 @@ const onCardEdit = async (id: string, newCategories: string[]) => {
 </script>
 
 <template>
-  <!-- <div class="d-flex justify-center mb-6" v-if="pagesCount"> -->
   <v-container>
     <v-pagination
       :length="pagesCount"
@@ -46,6 +57,12 @@ const onCardEdit = async (id: string, newCategories: string[]) => {
       @update:model-value="onPage"
     ></v-pagination>
   </v-container>
-  <!-- </div> -->
   <ImagesGrid @card-edit="onCardEdit" />
+  <v-container>
+    <v-pagination
+      :length="pagesCount"
+      :model-value="page"
+      @update:model-value="onPage"
+    ></v-pagination>
+  </v-container>
 </template>

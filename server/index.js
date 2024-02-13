@@ -61,22 +61,17 @@ app.use(
 )
 
 app.post('/api/v1/getImages/', (_req, res) => {
-  console.log(_req.body)
   const start = (_req.body.page || 0) * picsPerPage
   const end = start + picsPerPage
   const selectedImages = images.slice(start, end)
 
-  console.log({ start, end, selectedImages })
-
   const imagesProps = selectedImages.map((id) => getImage(id))
 
-  return res.send(imagesProps)
+  return res.send({ images: imagesProps, pagesTotal: Math.ceil(images.length / picsPerPage) })
 })
 
 app.post('/api/v1/editImage', (_req, res) => {
-  console.log('Editing image')
   const { id, categories = [] } = _req.body
-  console.log({ id, categories })
   const categoriesMap = Object.fromEntries(categories.map((cat) => [cat, true]))
 
   const existedCats = database.imgToCat[id] || []
@@ -164,7 +159,7 @@ app.get('/api/v1/deleteImage', (_req, res) => {
   const newDBContent = JSON.stringify(database)
   fs.writeFileSync(dbPath, newDBContent, { encoding: 'utf-8' })
 
-  res.sendStatus(200)
+  res.send({ totalImages: images.length })
 })
 
 app.listen(port, () => {

@@ -1,17 +1,22 @@
 import type { ImageFilters, ImageCard } from '@/models'
 import { ApiBase } from './apiBase'
-import { HTTPMethod, type EditImageResponse } from './models'
+import { HTTPMethod, type EditImageResponse, type GetImagesResponse } from './models'
 
 export class ImagesConnector extends ApiBase {
   constructor(endpoint: string) {
     super(endpoint)
   }
 
-  public async getImages(page?: number, filters?: ImageFilters): Promise<ImageCard[]> {
-    const images =
-      (await this.request<ImageCard[]>(HTTPMethod.POST, 'getImages', { page, filters })) ?? []
+  public async getImages(page?: number, filters?: ImageFilters): Promise<GetImagesResponse> {
+    const response = (await this.request<GetImagesResponse>(HTTPMethod.POST, 'getImages', {
+      page,
+      filters
+    })) ?? {
+      images: [],
+      pagesTotal: 0
+    }
 
-    return images
+    return response
   }
 
   public async editImage(id: string, categories: string[]): Promise<EditImageResponse> {
