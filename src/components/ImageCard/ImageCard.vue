@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { mdiLabel, mdiDownload, mdiPencil, mdiDelete } from '@mdi/js'
+import { mdiLabel, mdiPencil, mdiDelete } from '@mdi/js'
 import type { ImageCard } from '@/models'
-import { computed } from 'vue'
-import { tr } from 'vuetify/locale'
 import ImageCardForm from '../ImageCardForm/ImageCardForm.vue'
+import { computed } from 'vue'
+import { getImageUrl } from '@/utils'
 
 const props = defineProps<ImageCard & { disabled?: boolean }>()
 const emits = defineEmits<{
@@ -12,37 +12,14 @@ const emits = defineEmits<{
   delete: [id: string]
   loadError: []
   edit: [id: string, categories: string[]]
+  imageClick: [card: ImageCard]
 }>()
-
-const btnRef = ref(undefined)
-const isTooltipShown = ref(false)
+const url = computed(() => getImageUrl(props.fileName))
 const isDeleting = ref(false)
 const isEditing = ref(false)
 
-const showTooltip = () => {
-  isTooltipShown.value = true
-
-  setTimeout(() => {
-    isTooltipShown.value = false
-  }, 1000)
-}
-
-const onCopyClick = async () => {
-  try {
-    const data = await fetch(props.url)
-    const blob = await data.blob()
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        data: blob
-      })
-    ])
-  } catch {
-    console.log('Failed to write image')
-  }
-}
-
 const onDelete = () => {
-  emits('delete', props.id)
+  emits('delete', props._id)
   isDeleting.value = false
 }
 
@@ -52,14 +29,24 @@ const onCancelEdit = () => {
 
 const onSubmit = (categories: string[]) => {
   isEditing.value = false
-  emits('edit', props.id, categories)
+  emits('edit', props._id, categories)
 }
 </script>
 
 <template>
   <v-card class="card d-flex flex-column justify-space-between">
-    <v-img @error="$emit('loadError')" class="image" :src="url" download aspect-ratio="1"></v-img>
-    <v-card-text v-if="props.categories?.length" class="d-flex pt-4 flex-wrap gc-1 gr-1 py-0">
+    <v-img
+      @error="$emit('loadError')"
+      class="image"
+      :src="url"
+      download
+      aspect-ratio="1"
+      @click="$emit('imageClick', props)"
+    ></v-img>
+    <v-card-text
+      v-if="props.categories?.length"
+      class="d-flex pt-4 flex-wrap flex-grow-0 gc-1 gr-1 py-0 align-end"
+    >
       <v-chip
         v-for="tag in props.categories"
         v-bind:key="tag"
@@ -118,7 +105,7 @@ const onSubmit = (categories: string[]) => {
     <v-expand-transition>
       <v-card v-if="isEditing" class="delete-container pa-4 d-flex flex-direction-column">
         <image-card-form
-          :card="{ id: props.id, url: props.url, categories: props.categories }"
+          :card="{ _id: props._id, categories: props.categories }"
           class="flex-grow-1"
           @cancel="onCancelEdit"
           @sumbit="onSubmit"

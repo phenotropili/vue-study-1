@@ -6,12 +6,18 @@ import os from 'os'
 import bodyParser from 'body-parser'
 import nc from 'natural-compare-lite'
 import cors from 'cors'
+import { MongoClient, ObjectId } from 'mongodb'
 
-const { databasePath, imagesPath, port, picsPerPage, imagesBaseURL } = cfg
+const { databasePath, imagesPath, port, picsPerPage, imagesBaseURL, mongoDBConnectionString } = cfg
+
+const client = new MongoClient(mongoDBConnectionString)
+const db = client.db('images')
+const collection = db.collection('images')
 
 const imageRegex = /\.(gif|jpe?g|tiff?|png|webp|bmp)$/i
 
-const getImagesInDirectory = (dir) => {
+const syncImagesWithDirectory = async (dir) => {
+  console.log('Syncing directory with DB')
   const isDirExists = fs.existsSync(dir)
 
   if (!isDirExists) {
@@ -19,9 +25,25 @@ const getImagesInDirectory = (dir) => {
   }
 
   const images = fs.readdirSync(dir, { recursive: true }).filter((entry) => imageRegex.test(entry))
-  images.sort((a, b) => nc(a.toLowerCase(), b.toLowerCase()))
+  const imagesMap = Object.fromEntries(images.map((x) => [x, true]))
 
-  return images
+  const savedImages = (await collection.find({}).project({ _id: 0, fileName: 1 }).toArray()).map(
+    (x) => x.fileName
+  )
+  const savedMap = Object.fromEntries(savedImages.map((x) => [x, true]))
+
+  const imagesToAdd = images.filter((x) => !savedMap[x])
+  const imagesToRemove = savedImages.filter((x) => !imagesMap[x])
+
+  if (imagesToAdd.length) {
+    const insertList = imagesToAdd.map((fileName) => ({ fileName, categories: [] }))
+    await collection.insertMany(insertList)
+  }
+
+  if (imagesToRemove.length) {
+    await collection.deleteMany({ fileName: { $in: imagesToRemove } })
+  }
+  console.log(`Inserted: ${imagesToAdd.length}, deleted: ${imagesToRemove.length}`)
 }
 
 const dbPath =
@@ -34,7 +56,7 @@ const saveDatabase = () => {
   fs.writeFileSync(dbPath, newDBContent, { encoding: 'utf-8' })
 }
 
-const getCategoriesList = () => Object.keys(database.catToImg).sort((a, b) => nc(a, b))
+const getCategoriesList = () => {}
 
 const getImage = (id) => {
   const categories = database.imgToCat[id]
@@ -42,11 +64,11 @@ const getImage = (id) => {
   return {
     id,
     categories,
-    url: `${imagesBaseURL}/${id}`
+    fileName: id
   }
 }
 
-const images = getImagesInDirectory(imagesPath)
+await syncImagesWithDirectory(imagesPath)
 
 const app = express()
 
@@ -60,68 +82,29 @@ app.use(
   })
 )
 
-app.post('/api/v1/getImages/', (_req, res) => {
+app.post('/api/v1/getImages/', async (_req, res) => {
   const start = (_req.body.page || 0) * picsPerPage
-  const end = start + picsPerPage
-  const selectedImages = images.slice(start, end)
+  const filters = _req.body.filters || {}
 
-  const imagesProps = selectedImages.map((id) => getImage(id))
-
-  return res.send({ images: imagesProps, pagesTotal: Math.ceil(images.length / picsPerPage) })
+  const images = await collection.find(filters, { skip: start, limit: picsPerPage }).toArray()
+  const imagesCount = await collection.countDocuments(filters)
+  return res.send({ images, pagesTotal: Math.ceil(imagesCount / picsPerPage) })
 })
 
-app.post('/api/v1/editImage', (_req, res) => {
-  const { id, categories = [] } = _req.body
-  const categoriesMap = Object.fromEntries(categories.map((cat) => [cat, true]))
+app.post('/api/v1/editImage', async (_req, res) => {
+  const { _id, categories = [] } = _req.body
 
-  const existedCats = database.imgToCat[id] || []
-  const existedCatsMap = Object.fromEntries(existedCats.map((cat) => [cat, true]))
+  const existedImage = await collection.findOne({ _id: ObjectId.createFromHexString(_id) })
 
-  const addedCats = categories.filter((cat) => !existedCatsMap[cat])
-
-  const removedCats = existedCats.filter((cat) => !categoriesMap[cat])
-
-  if (categories.length) {
-    database.imgToCat[id] = categories
-  } else {
-    delete database.imgToCat[id]
-  }
-  addedCats.forEach((cat) => {
-    const imagesByCat = database.catToImg[cat]
-
-    if (!imagesByCat) {
-      database.catToImg[cat] = [id]
-      return
+  const updateResult = await collection.updateOne(
+    { _id: ObjectId.createFromHexString(_id) },
+    {
+      $set: {
+        categories
+      }
     }
-
-    imagesByCat.push(id)
-  })
-
-  removedCats.forEach((cat) => {
-    const imagesByCat = database.catToImg[cat]
-
-    if (!imagesByCat) {
-      return
-    }
-
-    const imageIndex = imagesByCat.indexOf(id)
-    if (imageIndex !== -1) {
-      imagesByCat.splice(imageIndex, 1)
-    }
-
-    if (imagesByCat.length === 0) {
-      delete database.catToImg[cat]
-    }
-  })
-
-  saveDatabase()
-
-  const image = getImage(id)
-
-  res.json({
-    image,
-    categories: getCategoriesList()
-  })
+  )
+  res.json({ image: { ...existedImage, categories }, categories: [] })
 })
 
 app.get('/api/v1/getCategories', (_req, res) => {
@@ -130,37 +113,7 @@ app.get('/api/v1/getCategories', (_req, res) => {
   return res.send(categories)
 })
 
-app.get('/api/v1/deleteImage', (_req, res) => {
-  const { id } = _req.body
-
-  const fileName = path.resolve(imagesPath, id)
-  if (fs.existsSync(fileName)) {
-    fs.unlinkSync(fileName)
-  }
-
-  const catsForImage = database.imgToCat[id]
-  catsForImage.forEach((cat) => {
-    const imagesForCat = database.catToImg[cat]
-    const imageIndex = imagesForCat.indexOf(id)
-    if (imageIndex !== -1) {
-      imagesForCat.splice(imageIndex, 1)
-    }
-    if (!imagesForCat.length) {
-      delete database.catToImg[cat]
-    }
-  })
-  delete database.imgToCat[id]
-
-  const imageIndex = images.indexOf(id)
-  if (imageIndex !== -1) {
-    images.splice(imageIndex, 1)
-  }
-
-  const newDBContent = JSON.stringify(database)
-  fs.writeFileSync(dbPath, newDBContent, { encoding: 'utf-8' })
-
-  res.send({ totalImages: images.length })
-})
+app.get('/api/v1/deleteImage', (_req, res) => {})
 
 app.listen(port, () => {
   console.log('Server listening on port', port)

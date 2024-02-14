@@ -1,5 +1,5 @@
 export interface ImageCard {
-  url: string
+  fileName: string
   categories?: string[]
-  id: string
+  _id: string
 }

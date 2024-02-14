@@ -2,7 +2,7 @@
 
 <template>
   <v-layout class="rounded rounded-md">
-    <v-app-bar title="Application bar"></v-app-bar>
+    <v-app-bar title="Images"> </v-app-bar>
 
     <v-main>
       <router-view />

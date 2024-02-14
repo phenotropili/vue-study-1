@@ -9,13 +9,18 @@ const imagesStore = useImagesListStore()
   <div class="grid gr-4 gc-4">
     <ImageCard
       v-for="card in imagesStore.images"
-      :key="card.id"
-      :id="card.id"
-      :url="card.url"
+      :key="card._id"
+      :_id="card._id"
+      :file-name="card.fileName"
       :categories="card.categories"
       @edit="
-        (id, categories) => {
-          $emit('card-edit', id, categories)
+        (_id, categories) => {
+          $emit('card-edit', _id, categories)
+        }
+      "
+      @image-click="
+        (card) => {
+          $emit('image-click', card)
         }
       "
     />

@@ -19,9 +19,9 @@ export class ImagesConnector extends ApiBase {
     return response
   }
 
-  public async editImage(id: string, categories: string[]): Promise<EditImageResponse> {
+  public async editImage(_id: string, categories: string[]): Promise<EditImageResponse> {
     const response = await this.request<EditImageResponse>(HTTPMethod.POST, 'editImage', {
-      id,
+      _id,
       categories
     })
 
