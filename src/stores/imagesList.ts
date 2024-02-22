@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { reactive } from 'vue'
 import type { ImageCard } from '@/models'

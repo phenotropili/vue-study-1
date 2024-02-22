@@ -62,4 +62,5 @@ export type EditImageResponse = {
 export type GetImagesResponse = {
   images: ImageCard[]
   pagesTotal: number
+  categories: string[]
 }

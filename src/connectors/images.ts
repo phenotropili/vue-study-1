@@ -13,7 +13,8 @@ export class ImagesConnector extends ApiBase {
       filters
     })) ?? {
       images: [],
-      pagesTotal: 0
+      pagesTotal: 0,
+      categories: []
     }
 
     return response

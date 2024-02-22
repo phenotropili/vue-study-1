@@ -36,6 +36,7 @@ export class ApiBase {
       return response.data
     } catch (e: unknown) {
       const error = e as Error | AxiosError
+      console.error(error)
       if (this.onError) {
         if (axios.isAxiosError(e)) {
           this.onError(

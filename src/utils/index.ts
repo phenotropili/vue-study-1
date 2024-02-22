@@ -12,15 +12,13 @@ export const getFiltersObject = (queryStr: string) => {
       .split(',')
       .map((x) => x.trim())
       .filter((x) => Boolean(x))
-    const result = { categories: { $in: chunks } }
+      .map((expression) => ({ categories: { $regex: expression } }))
+    const result = { $or: chunks }
 
     return result
   }
 
-  const keysMatches = newStr.match(keysRe)
-  if (!keysMatches) {
-    throw new Error('Invalid string')
-  }
+  const keysMatches = newStr.match(keysRe) || []
 
   const keysMap: Record<string, boolean> = {}
 

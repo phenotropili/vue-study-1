@@ -5,70 +5,115 @@ import ImagesGrid from '../components/ImagesGrid.vue'
 import { useImagesListStore } from '@/stores/imagesList'
 import { ImagesConnector } from '@/connectors/images'
 import config from '@/config'
-import { computed, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { watch } from 'vue'
+import { useRoute, useRouter, type LocationQueryValue } from 'vue-router'
 import { getFiltersObject, getImageUrl } from '@/utils'
 import { mdiMagnify } from '@mdi/js'
 import type { ImageCard } from '@/models'
+import { useCategoriesStore } from '@/stores/categories'
 
 const imagesConnector = new ImagesConnector(config.endpoints.api)
 const imagesListStore = useImagesListStore()
+const categoriesStore = useCategoriesStore()
 
 const pagesCount = ref(0)
 
-const loadImages = (p: number, filter?: object) => {
-  imagesConnector.getImages(p - 1, filter).then(({ images, pagesTotal }) => {
-    imagesListStore.images = images
-    pagesCount.value = pagesTotal
-  })
-}
-
 const route = useRoute()
 const router = useRouter()
-const page = computed<number>(() => {
-  const pageStr = route.params['page'] as string
-  const pageNum = parseInt(pageStr, 10)
+const page = ref<number>(1)
+const filter = ref<object>()
 
-  return !Number.isNaN(pageNum) ? pageNum : 1
-})
+const loadImages = () => {
+  imagesConnector
+    .getImages(page.value - 1, filter.value)
+    .then(({ images, pagesTotal, categories }) => {
+      console.log('Loaded images')
+      imagesListStore.images = images
+      pagesCount.value = pagesTotal
+      categoriesStore.categories = categories
+    })
+}
 
-const filter = computed<object | undefined>(() => {
-  const queryStr = route.query['query']
-
-  if (Array.isArray(queryStr)) {
-    clearSearch()
-    return undefined
+const getPage = (paramValue: LocationQueryValue | LocationQueryValue[]) => {
+  if (Array.isArray(paramValue) || paramValue === null) {
+    return 1
   }
 
-  if (!queryStr || queryStr === '{}') {
-    return undefined
-  }
+  const pageNum = parseInt(paramValue, 10)
 
-  try {
-    return JSON.parse(queryStr)
-  } catch {
-    return undefined
-  }
-})
-
-watch(page, (newPage) => {
-  loadImages(newPage, filter)
-})
-
-watch(filter, (newFilter) => {
-  loadImages(page.value, newFilter)
-})
+  return Number.isNaN(pageNum) ? 1 : pageNum
+}
 
 onMounted(() => {
-  loadImages(page.value, filter.value)
+  // eslint-disable-next-line no-debugger
+  // debugger
+  page.value = getPage(route.params['page'])
+
+  const queryStr = route.query['query']
+  if (Array.isArray(queryStr)) {
+    clearSearch()
+    filter.value = undefined
+
+    loadImages()
+  } else if (!queryStr) {
+    filter.value = undefined
+    loadImages()
+  } else {
+    try {
+      const decodedQueryStr = decodeURIComponent(queryStr)
+      filter.value = getFiltersObject(decodedQueryStr)
+    } catch {
+      clearSearch()
+      filter.value = undefined
+    }
+
+    loadImages()
+  }
 })
 
+watch(
+  () => [route.query['query'], route.params['page']],
+  ([newQueryString, newPage]) => {
+    // eslint-disable-next-line no-debugger
+    debugger
+    const pageValue = getPage(newPage)
+    if (pageValue !== page.value) {
+      page.value = pageValue
+    }
+
+    if (!newQueryString) {
+      filter.value = undefined
+      searchValue.value = ''
+    } else {
+      const currentFilterStr = JSON.stringify(filter.value)
+      const decodedQueryStr = decodeURIComponent(newQueryString as string)
+      if (currentFilterStr !== decodedQueryStr) {
+        try {
+          const newFilter = getFiltersObject(decodedQueryStr)
+
+          filter.value = newFilter
+          searchValue.value = decodedQueryStr
+        } catch {
+          filter.value = undefined
+          searchValue.value = ''
+        }
+      }
+    }
+
+    loadImages()
+  }
+)
+
 const onPage = (newPage: number) => {
-  router.push({ name: 'home', params: { page: newPage } })
+  page.value = newPage
+  router.push({ name: 'home', params: { page: newPage }, query: route.query })
+  loadImages()
+  window.scrollTo(0, 0)
 }
 
 const onCardEdit = async (_id: string, newCategories: string[]) => {
-  const { image } = await imagesConnector.editImage(_id, [...newCategories])
+  const { image, categories } = await imagesConnector.editImage(_id, [...newCategories])
+  categoriesStore.categories = categories
 
   const index = imagesListStore.images.findIndex((x) => x._id === _id)
   if (index !== -1) {
@@ -80,10 +125,15 @@ const errorMessages = ref<string[]>([])
 const searchValue = ref<string>(route.query['query'] as string)
 
 const clearSearch = () => {
-  router.push(`${route.path}`)
+  router.push({ name: 'home' })
+  filter.value = undefined
+  page.value = 1
+  loadImages()
 }
 
 const onSearch = () => {
+  // eslint-disable-next-line no-debugger
+  // debugger
   const newValue = searchValue.value
 
   if (!newValue || newValue === '{}') {
@@ -92,14 +142,18 @@ const onSearch = () => {
   }
 
   try {
-    const filter = getFiltersObject(newValue)
+    filter.value = getFiltersObject(newValue)
     if (errorMessages.value.length) {
       errorMessages.value = []
     }
 
-    const queryString = encodeURIComponent(JSON.stringify(filter))
+    const queryString = encodeURIComponent(JSON.stringify(filter.value))
+    page.value = 1
+    if (route.query['query'] !== queryString) {
+      router.push({ name: 'home', params: { page: page.value }, query: { query: queryString } })
+    }
 
-    router.push(`${route.path}?query=${queryString}`)
+    loadImages()
   } catch {
     errorMessages.value = ['Invalid search string']
   }
@@ -157,7 +211,9 @@ const onOverlayClose = () => {
     @update:model-value="onOverlayClose"
     @click="onOverlayClose"
   >
-    <v-img :src="expandedImage" aspect-ratio="1"></v-img>
+    <v-card class="image-card">
+      <v-img :src="expandedImage" aspect-ratio="1"></v-img>
+    </v-card>
   </v-overlay>
 </template>
 
@@ -170,5 +226,9 @@ const onOverlayClose = () => {
   /* position: relative; */
   width: 90%;
   height: 90%;
+}
+
+.image-card {
+  height: 100%;
 }
 </style>

@@ -43,7 +43,6 @@ const syncImagesWithDirectory = async (dir) => {
   if (imagesToRemove.length) {
     await collection.deleteMany({ fileName: { $in: imagesToRemove } })
   }
-  console.log(`Inserted: ${imagesToAdd.length}, deleted: ${imagesToRemove.length}`)
 }
 
 const dbPath =
@@ -56,7 +55,14 @@ const saveDatabase = () => {
   fs.writeFileSync(dbPath, newDBContent, { encoding: 'utf-8' })
 }
 
-const getCategoriesList = () => {}
+const getCategoriesList = async () => {
+  const categoriesCursor = collection.find({})
+  const categoriesList = await (await categoriesCursor.project({ _id: 0, categories: 1 }).toArray())
+    .map((x) => x.categories)
+    .flat(1)
+  const categoriesSet = new Set(categoriesList)
+  return Array.from(categoriesSet).sort((a, b) => nc(a, b))
+}
 
 const getImage = (id) => {
   const categories = database.imgToCat[id]
@@ -82,21 +88,26 @@ app.use(
   })
 )
 
-app.post('/api/v1/getImages/', async (_req, res) => {
+app.post('/api/v1/getImages/', (_req, res) => {
   const start = (_req.body.page || 0) * picsPerPage
-  const filters = _req.body.filters || {}
+  let filters = _req.body.filters || {}
+  if (filters === ':empty') {
+    filters = { categories: [] }
+  }
 
-  const images = await collection.find(filters, { skip: start, limit: picsPerPage }).toArray()
-  const imagesCount = await collection.countDocuments(filters)
-  return res.send({ images, pagesTotal: Math.ceil(imagesCount / picsPerPage) })
+  Promise.all([
+    collection.find(filters, { skip: start, limit: picsPerPage }).toArray(),
+    collection.countDocuments(filters),
+    getCategoriesList()
+  ]).then(([images, imagesCount, categories]) => {
+    res.send({ images, pagesTotal: Math.ceil(imagesCount / picsPerPage), categories })
+  })
 })
 
 app.post('/api/v1/editImage', async (_req, res) => {
   const { _id, categories = [] } = _req.body
 
-  const existedImage = await collection.findOne({ _id: ObjectId.createFromHexString(_id) })
-
-  const updateResult = await collection.updateOne(
+  await collection.updateOne(
     { _id: ObjectId.createFromHexString(_id) },
     {
       $set: {
@@ -104,13 +115,19 @@ app.post('/api/v1/editImage', async (_req, res) => {
       }
     }
   )
-  res.json({ image: { ...existedImage, categories }, categories: [] })
+
+  Promise.all([
+    collection.findOne({ _id: ObjectId.createFromHexString(_id) }),
+    getCategoriesList()
+  ]).then(([image, newCategories]) => {
+    res.json({ image, categories: newCategories })
+  })
 })
 
-app.get('/api/v1/getCategories', (_req, res) => {
-  const categories = Object.keys(database.imgToCat).sort((a, b) => nc(a, b))
+app.get('/api/v1/getCategories', async (_req, res) => {
+  const categories = await getCategoriesList()
 
-  return res.send(categories)
+  res.send(categories)
 })
 
 app.get('/api/v1/deleteImage', (_req, res) => {})

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { mdiLabel, mdiPencil, mdiDelete } from '@mdi/js'
+import { mdiLabel, mdiPencil, mdiDelete, mdiContentCopy } from '@mdi/js'
 import type { ImageCard } from '@/models'
 import ImageCardForm from '../ImageCardForm/ImageCardForm.vue'
 import { computed } from 'vue'
 import { getImageUrl } from '@/utils'
+import { onMounted } from 'vue'
+import { onUnmounted } from 'vue'
 
 const props = defineProps<ImageCard & { disabled?: boolean }>()
 const emits = defineEmits<{
@@ -31,13 +33,19 @@ const onSubmit = (categories: string[]) => {
   isEditing.value = false
   emits('edit', props._id, categories)
 }
+
+const onCopyClick = () => {
+  if (props.categories?.length) {
+    navigator.clipboard.writeText(props.categories.join(', '))
+  }
+}
 </script>
 
 <template>
   <v-card class="card d-flex flex-column justify-space-between">
     <v-img
       @error="$emit('loadError')"
-      class="image"
+      :class="['image', { image_hidden: isEditing }]"
       :src="url"
       download
       aspect-ratio="1"
@@ -58,16 +66,6 @@ const onSubmit = (categories: string[]) => {
       </v-chip>
     </v-card-text>
     <v-card-actions class="py-0 actions">
-      <!-- <v-btn
-          @click="onCopyClick"
-          size="small"
-          color="primary"
-          variant="text"
-          :icon="mdiDownload"
-          ref="btnRef"
-          title="Copy to clipboard"
-          :disabled="props.disabled"
-        ></v-btn> -->
       <v-btn
         size="small"
         color="primary"
@@ -75,6 +73,16 @@ const onSubmit = (categories: string[]) => {
         :icon="mdiPencil"
         title="Edit"
         @click="isEditing = true"
+        :disabled="props.disabled"
+      ></v-btn>
+      <v-btn
+        @click="onCopyClick"
+        size="small"
+        color="primary"
+        variant="text"
+        :icon="mdiContentCopy"
+        ref="btnRef"
+        title="Copy categories"
         :disabled="props.disabled"
       ></v-btn>
       <v-btn
@@ -118,6 +126,10 @@ const onSubmit = (categories: string[]) => {
 <style>
 .image {
   margin-bottom: auto;
+}
+
+.image_hidden {
+  pointer-events: none;
 }
 
 .color {

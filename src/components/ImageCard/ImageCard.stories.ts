@@ -7,7 +7,7 @@ const meta = {
   title: 'Components/ImageCard',
   component: ImageCard,
   argTypes: {
-    url: {
+    fileName: {
       description: 'Image URL',
       type: 'string'
     },
@@ -26,8 +26,9 @@ const meta = {
     }
   },
   args: {
-    id: '1',
-    url: 'https://fishki.net/upload/users/2020/08/31/385211/1bd31ae68f7f75bb25d72d97156212ca.jpg',
+    _id: '1',
+    fileName:
+      'https://fishki.net/upload/users/2020/08/31/385211/1bd31ae68f7f75bb25d72d97156212ca.jpg',
     onLoadError: () => {
       console.log('Load error')
     }
@@ -47,13 +48,14 @@ export const Primary: Story = {}
 
 export const WideImage: Story = {
   args: {
-    url: 'https://k-a-r-t-i-n-a.ru/wp-content/uploads/2018/02/devyatyj-val-i.-ajvazovskogo.-obzor-kartiny-2048x1371.jpg'
+    fileName:
+      'https://k-a-r-t-i-n-a.ru/wp-content/uploads/2018/02/devyatyj-val-i.-ajvazovskogo.-obzor-kartiny-2048x1371.jpg'
   }
 }
 
 export const TallImage: Story = {
   args: {
-    url: 'https://smallbay.ru/images3/briullov01.jpg'
+    fileName: 'https://smallbay.ru/images3/briullov01.jpg'
   }
 }
 
